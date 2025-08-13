@@ -1,0 +1,257 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Doctor Schedule</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  
+</head>
+<body class="bg-light p-4">
+
+    <!-- Header with title and Add Schedule button -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold">Save Schedule</h2>
+        <button id="addScheduleBtn" class="btn btn-primary shadow-sm">Add Schedule</button>
+    </div>
+
+    <!-- Schedule Form -->
+    <form id="scheduleForm" class="border bg-white p-4 rounded shadow-sm mb-5" style="display:none;">
+        <div class="mb-3">
+            <label for="doctorName" class="form-label fw-semibold">Doctor Name</label>
+            <input type="text" id="doctorName" name="doctorName" class="form-control form-control-lg" placeholder="Enter doctor name" required />
+        </div>
+
+        <div class="mb-3">
+            <label for="dayOfWeek" class="form-label fw-semibold">Day of Week</label>
+            <select id="dayOfWeek" name="dayOfWeek" class="form-select form-select-lg" required>
+                <option value="" disabled selected>Select Day</option>
+                <option>Monday</option>
+                <option>Tuesday</option>
+                <option>Wednesday</option>
+                <option>Thursday</option>
+                <option>Friday</option>
+                <option>Saturday</option>
+                <option>Sunday</option>
+            </select>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label for="startTime" class="form-label fw-semibold">Start Time</label>
+                <input type="time" id="startTime" name="startTime" class="form-control form-control-lg" required />
+            </div>
+            <div class="col-md-6">
+                <label for="endTime" class="form-label fw-semibold">End Time</label>
+                <input type="time" id="endTime" name="endTime" class="form-control form-control-lg" required />
+            </div>
+        </div>
+
+        <div class="form-check form-switch mb-4">
+            <input class="form-check-input" type="checkbox" id="isAvailable" checked>
+            <label class="form-check-label fw-semibold" for="isAvailable">Available</label>
+        </div>
+
+        <div>
+            <button type="submit" class="btn btn-success btn-lg me-2 shadow-sm">Save Schedule</button>
+            <button type="button" id="cancelBtn" class="btn btn-outline-secondary btn-lg shadow-sm">Cancel</button>
+        </div>
+    </form>
+
+    <!-- Container for day tables -->
+    <div id="dayTablesContainer" class="row g-4">
+        <!-- Tables for each day will be inserted here dynamically -->
+    </div>
+
+    <script>
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const addScheduleBtn = document.getElementById("addScheduleBtn");
+            const scheduleForm = document.getElementById("scheduleForm");
+            const cancelBtn = document.getElementById("cancelBtn");
+            const dayTablesContainer = document.getElementById("dayTablesContainer");
+
+            const apiBaseUrl = "https://localhost:7096/api/Schedule";
+
+            // Show form
+            addScheduleBtn.addEventListener("click", () => {
+                scheduleForm.style.display = "block";
+                addScheduleBtn.style.display = "none";
+            });
+
+            // Cancel form
+            cancelBtn.addEventListener("click", () => {
+                scheduleForm.reset();
+                scheduleForm.style.display = "none";
+                addScheduleBtn.style.display = "inline-block";
+            });
+
+            // Save schedule
+
+            scheduleForm.addEventListener("submit", async function (e) {
+                e.preventDefault();
+
+                // Gather doctor info
+                const doctorName = document.getElementById("doctorName").value.trim();
+              
+
+                // Gather schedule & time info
+                const dayOfWeek = document.getElementById("dayOfWeek").value;
+                const startTime = document.getElementById("startTime").value;
+                const endTime = document.getElementById("endTime").value;
+                const isAvailable = document.getElementById("isAvailable").checked;
+
+                // Validation
+                if (!doctorName) {
+                    alert("Please fill in all required fields.");
+                    return;
+                }
+
+                if (startTime >= endTime) {
+                    alert("Start time must be before end time.");
+                    return;
+                }
+
+                // Build request payload
+                const doctorData = {
+                    doctorName,
+                    
+                    schedules: [
+                        {
+                            dayOfWeek,
+                            times: [
+                                {
+                                    startTime,
+                                    endTime,
+                                    timeType: "AM", // Or detect dynamically
+                                    appointmentAvailability: isAvailable ? "Available" : "Unavailable"
+                                }
+                            ]
+                        }
+                    ]
+                };
+
+                console.log("Sending to API:", doctorData);
+
+                try {
+                    const response = await fetch(apiBaseUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(doctorData)
+                    });
+
+                    if (response.ok) {
+                        alert("Doctor and schedule saved successfully!");
+                        scheduleForm.reset();
+                        loadSchedulesFromDB(); // Refresh schedule list
+                    } else {
+                        const errorText = await response.text();
+                        console.error("Error from API:", errorText);
+                        alert("Failed to save doctor & schedule. See console for details.");
+                    }
+                } catch (error) {
+                    console.error("Network error:", error);
+                    alert("Could not connect to API.");
+                }
+            });
+
+            // Load schedules from database
+            async function loadSchedulesFromDB() {
+                try {
+                    const response = await fetch(apiBaseUrl);
+                    if (!response.ok) {
+                        console.error("Failed to fetch schedules:", await response.text());
+                        return;
+                    }
+
+                    const schedules = await response.json();
+                    console.log("API Response:", schedules);
+
+                    const mappedSchedules = [];
+                    schedules.forEach(sch => {
+                        if (Array.isArray(sch.times) && sch.times.length > 0) {
+                            sch.times.forEach(timeSlot => {
+                                mappedSchedules.push({
+                                    doctorName: sch.doctorName ?? "Unknown",
+                                    dayOfWeek: sch.dayOfWeek ?? "",
+                                    startTime: timeSlot.startTime ?? "",
+                                    endTime: timeSlot.endTime ?? "",
+                                    timeType: timeSlot.timeType ?? "",
+                                    isAvailable: (timeSlot.appointmentAvailability ?? "").toLowerCase() === "available"
+                                });
+                            });
+                        }
+                    });
+
+                    renderDayTables(mappedSchedules);
+                } catch (error) {
+                    console.error("Error fetching schedules:", error);
+                }
+            }
+
+            // Render schedules grouped by day
+            function renderDayTables(schedules) {
+                dayTablesContainer.innerHTML = "";
+                const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+                daysOfWeek.forEach(day => {
+                    const dayDiv = document.createElement("div");
+                    dayDiv.className = "day-table col-12 col-md-6 col-lg-4";
+
+                    const dayTitle = document.createElement("h3");
+                    dayTitle.textContent = day;
+                    dayDiv.appendChild(dayTitle);
+
+                    const table = document.createElement("table");
+                    table.className = "table table-bordered";
+                    table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Doctor Name</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Availability</th>
+                    </tr>
+                </thead>
+            `;
+
+                    const tbody = document.createElement("tbody");
+                    const schedulesForDay = schedules.filter(
+                        sch => (sch.dayOfWeek ?? "").toLowerCase() === day.toLowerCase()
+                    );
+
+                    if (schedulesForDay.length === 0) {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `<td colspan="4" class="text-center text-muted">No schedules</td>`;
+                        tbody.appendChild(tr);
+                    } else {
+                        schedulesForDay.forEach(sch => {
+                            const tr = document.createElement("tr");
+                            tr.innerHTML = `
+                        <td>${sch.doctorName}</td>
+                        <td>${sch.startTime} ${sch.timeType ?? ""}</td>
+                        <td>${sch.endTime} ${sch.timeType ?? ""}</td>
+                        <td>
+                            <span class="badge ${sch.isAvailable ? 'bg-success' : 'bg-danger'}">
+                                ${sch.isAvailable ? 'Available' : 'Unavailable'}
+                            </span>
+                        </td>
+                    `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+
+                    table.appendChild(tbody);
+                    dayDiv.appendChild(table);
+                    dayTablesContainer.appendChild(dayDiv);
+                });
+            }
+
+            // Initial load
+            loadSchedulesFromDB();
+        });
+
+
+    </script>
+</body>
+</html>

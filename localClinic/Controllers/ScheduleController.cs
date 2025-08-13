@@ -22,23 +22,44 @@ namespace localClinic.Controllers
         }
 
         [HttpGet]
-        public async Task <IActionResult> GetAllSchedules()
+        public async Task<IActionResult> GetAllSchedules()
         {
             var schedules = await _context.Schedules
+                .Include(s => s.Doctor)
                 .Include(s => s.Times)
+                .Select(s => new {
+                    s.ScheduleId,
+                    s.DoctorId,
+                    DoctorName = s.Doctor.DoctorName,
+                    s.DayOfWeek,
+                    Times = s.Times.Select(t => new {
+                        t.TimeId,
+                        t.StartTime,
+                        t.EndTime,
+                        t.TimeType,
+                        t.ScheduleId,
+                        t.AppointmentAvailability
+                    })
+                })
                 .ToListAsync();
-            
+
             return Ok(schedules);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateSchedule([FromBody] ScheduleDto scheduleDto)
+        public async Task<IActionResult> CreateDoctorWithSchedule([FromBody] DoctorDto doctorDto)
         {
-            var schedule = _mapper.Map<Schedule>(scheduleDto);
-            _context.Schedules.Add(schedule);
+            if (doctorDto == null)
+                return BadRequest("Invalid data");
+
+            var doctor = _mapper.Map<Doctor>(doctorDto);
+
+            _context.Doctors.Add(doctor);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetAllSchedules), new { id = schedule.ScheduleId }, schedule);
+
+            return CreatedAtAction(nameof(GetAllSchedules), new { id = doctor.DoctorId }, doctor);
         }
+
 
         [HttpPut("{id:int}")]
         public async Task<IActionResult> UpdateSchedule(int id, [FromBody] ScheduleDto scheduleDto)
