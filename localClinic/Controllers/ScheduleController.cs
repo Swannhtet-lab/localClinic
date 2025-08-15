@@ -1,15 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using localClinic.Data;
 using localClinic.Dtos;
 using localClinic.Models;
-using AutoMapper;
-using localClinic.Data;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace localClinic.Controllers
+
+namespace SchoolProject.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    
+
     public class ScheduleController : ControllerBase
     {
         private readonly PjContext _context;
@@ -20,7 +21,6 @@ namespace localClinic.Controllers
             _context = context;
             _mapper = mapper;
         }
-
         [HttpGet]
         public async Task<IActionResult> GetAllSchedules()
         {
@@ -30,6 +30,7 @@ namespace localClinic.Controllers
                 .Select(s => new {
                     s.ScheduleId,
                     s.DoctorId,
+                    s.Date,
                     DoctorName = s.Doctor.DoctorName,
                     s.DayOfWeek,
                     Times = s.Times.Select(t => new {
@@ -59,7 +60,6 @@ namespace localClinic.Controllers
 
             return CreatedAtAction(nameof(GetAllSchedules), new { id = doctor.DoctorId }, doctor);
         }
-
 
         [HttpPut("{id:int}")]
         public async Task<IActionResult> UpdateSchedule(int id, [FromBody] ScheduleDto scheduleDto)

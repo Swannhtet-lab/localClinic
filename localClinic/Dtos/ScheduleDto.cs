@@ -10,6 +10,8 @@ namespace localClinic.Dtos
 
         public string? DayOfWeek { get; set; }
 
+        public string? Date { get; set; }
+
         public virtual ICollection<TimeDto> Times { get; set; } = new List<TimeDto>();
 
     }

@@ -11,6 +11,8 @@ public partial class Schedule
 
     public string? DayOfWeek { get; set; }
 
+    public string? Date { get; set; }
+
     public virtual Doctor? Doctor { get; set; }
 
     public virtual ICollection<Time> Times { get; set; } = new List<Time>();
